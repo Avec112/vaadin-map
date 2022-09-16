@@ -3,15 +3,19 @@ package com.github.views.map;
 import com.github.views.MainLayout;
 import com.vaadin.flow.component.map.Map;
 import com.vaadin.flow.component.map.configuration.Coordinate;
+import com.vaadin.flow.component.map.configuration.Extent;
+import com.vaadin.flow.component.map.configuration.Feature;
 import com.vaadin.flow.component.map.configuration.View;
 import com.vaadin.flow.component.map.configuration.feature.MarkerFeature;
 import com.vaadin.flow.component.map.configuration.layer.TileLayer;
 import com.vaadin.flow.component.map.configuration.source.XYZSource;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouteAlias;
 
+import java.util.HashMap;
 import java.util.List;
 
 @PageTitle("Map")
@@ -31,6 +35,7 @@ public class MapView extends VerticalLayout {
 
     public MapView() {
         setSizeFull();
+        setSpacing(false);
         setPadding(false);
 
         setupXyzSource();
@@ -41,13 +46,63 @@ public class MapView extends VerticalLayout {
         view.setZoom(4);
         addAndExpand(map);
 
+        // Setup text areas for logging event data
+        TextArea viewEventInfo = new TextArea("View Move End Event");
+        viewEventInfo.addClassName("monospace");
+        viewEventInfo.setReadOnly(true);
+        viewEventInfo.setWidthFull();
+        viewEventInfo.addThemeName("monospace");
+        TextArea mapClickInfo = new TextArea("Map Click Event");
+        mapClickInfo.addClassName("monospace");
+        mapClickInfo.setReadOnly(true);
+        mapClickInfo.setWidthFull();
+        mapClickInfo.addThemeName("monospace");
+        TextArea featureClickInfo = new TextArea("Feature Click Event");
+        featureClickInfo.addClassName("monospace");
+        featureClickInfo.setReadOnly(true);
+        featureClickInfo.setWidthFull();
+        featureClickInfo.addThemeName("monospace");
+        VerticalLayout eventsLayout = new VerticalLayout();
+        eventsLayout.setSpacing(false);
+        eventsLayout.add(viewEventInfo, mapClickInfo, featureClickInfo);
+        add(eventsLayout);
+
         // Add markers for cities
-//        HashMap<Feature, City> cityLookup = new HashMap<>();
+        HashMap<Feature, City> cityLookup = new HashMap<>();
         CITIES.forEach(city -> {
             MarkerFeature cityMarker = new MarkerFeature(city.coordinates);
             map.getFeatureLayer().addFeature(cityMarker);
             // Store relation between cities and markers in a hash map
-//            cityLookup.put(cityMarker, city);
+            cityLookup.put(cityMarker, city);
+        });
+
+        map.addViewMoveEndEventListener(e -> {
+            Coordinate center = e.getCenter();
+            Extent extent = e.getExtent();
+            String info = "";
+            info += String.format("Center = { x: %s, y: %s }%n", center.getX(), center.getY());
+            info += String.format("Zoom   = %s%n", e.getZoom());
+            info += String.format("Extent = { left: %s, top: %s,%n", extent.getMinX(), extent.getMinY());
+            info += String.format("           right: %s, bottom: %s }", extent.getMaxX(), extent.getMaxY());
+            viewEventInfo.setValue(info);
+        });
+
+        map.addClickEventListener(e -> {
+            Coordinate coordinates = e.getCoordinate();
+            String info = String.format("Coordinates = { x: %s, y: %s }", coordinates.getX(), coordinates.getY());
+            mapClickInfo.setValue(info);
+        });
+
+        map.addFeatureClickListener(e -> {
+            MarkerFeature feature = (MarkerFeature) e.getFeature();
+            Coordinate coordinates = feature.getCoordinates();
+            // Get city entity for event marker,
+            // see remaining example on how the markers are set up
+            City city = cityLookup.get(feature);
+            String info = "";
+            info += String.format("City        = %s%n", city.getName());
+            info += String.format("Coordinates = { x: %s, y: %s }", coordinates.getX(), coordinates.getY());
+            featureClickInfo.setValue(info);
         });
     }
 
